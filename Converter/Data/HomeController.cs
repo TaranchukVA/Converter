@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -39,47 +40,73 @@ namespace Converter.Data
         [NonAction]
         private double FromRub(double quantity, Valute valute)
         {
-            return quantity  * valute.Nominal / valute.Value;
+            return quantity * valute.Nominal / valute.Value;
+        }
+
+        [Route("/valutes")]
+        public IActionResult Keys()
+        {
+            try
+            {
+                var data = GetDataAsync().Result;
+
+                var list = new SortedDictionary<string, string>();
+                foreach (var valute in data.valute)
+                    list.Add(valute.Key, valute.Value.Name);
+
+                return Ok(list);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [Route("/convert")]
         public IActionResult Covert([FromBody] CurencyData curencyData)
         {
-
-            if (curencyData == null) return BadRequest("Параметры не переданы");
-            if (String.IsNullOrEmpty(curencyData.oldCurency)) return BadRequest("Исходная валюта не передана");
-            if (String.IsNullOrEmpty(curencyData.newCurency)) return BadRequest("Новая валюта не передана");
-            if (Double.IsNegative(curencyData.oldQuantity)) return BadRequest("Не введено количество денег");
-
-            if (curencyData.oldCurency == curencyData.newCurency)
+            try
             {
-                curencyData.newQuantity = 1;
+
+                if (curencyData == null) return BadRequest("Параметры не переданы");
+                if (String.IsNullOrEmpty(curencyData.oldCurency)) return BadRequest("Исходная валюта не передана");
+                if (String.IsNullOrEmpty(curencyData.newCurency)) return BadRequest("Новая валюта не передана");
+                if (Double.IsNegative(curencyData.oldQuantity)) return BadRequest("Не введено количество денег");
+
+                if (curencyData.oldCurency == curencyData.newCurency)
+                {
+                    curencyData.newQuantity = 1;
+                    return Ok(curencyData);
+                }
+
+                var data = GetDataAsync().Result;
+
+                if (!data.valute.ContainsKey(curencyData.oldCurency))
+                    return BadRequest($"Нет информации о валюте {curencyData.oldCurency}");
+                if (!data.valute.ContainsKey(curencyData.newCurency))
+                    return BadRequest($"Нет информации о валюте {curencyData.newCurency}");
+
+                if (curencyData.newCurency == RUB)
+                {
+                    curencyData.newQuantity = ToRub(curencyData.oldQuantity, data.valute[curencyData.oldCurency]);
+                    return Ok(curencyData);
+                }
+                if (curencyData.oldCurency == RUB)
+                {
+                    curencyData.newQuantity = FromRub(curencyData.oldQuantity, data.valute[curencyData.newCurency]);
+                    return Ok(curencyData);
+                }
+
+                curencyData.newQuantity = FromRub(
+                    ToRub(curencyData.oldQuantity, data.valute[curencyData.oldCurency])
+                    , data.valute[curencyData.newCurency]);
+
                 return Ok(curencyData);
             }
-
-            var data = GetDataAsync().Result;
-
-            if (!data.valute.ContainsKey(curencyData.oldCurency))
-                return BadRequest($"Нет информации о валюте {curencyData.oldCurency}");
-            if (!data.valute.ContainsKey(curencyData.newCurency))
-                return BadRequest($"Нет информации о валюте {curencyData.newCurency}");
-
-            if (curencyData.newCurency == RUB)
+            catch (Exception ex)
             {
-                curencyData.newQuantity = ToRub(curencyData.oldQuantity, data.valute[curencyData.oldCurency]);
-                return Ok(curencyData);
+                return BadRequest(ex.Message);
             }
-            if (curencyData.oldCurency == RUB)
-            {
-                curencyData.newQuantity = FromRub(curencyData.oldQuantity, data.valute[curencyData.newCurency]);
-                return Ok(curencyData);
-            }
-
-            curencyData.newQuantity = FromRub(
-                ToRub(curencyData.oldQuantity, data.valute[curencyData.oldCurency])
-                , data.valute[curencyData.newCurency]);
-
-            return Ok(curencyData);
         }
     }
 }

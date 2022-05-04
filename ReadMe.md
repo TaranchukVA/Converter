@@ -2,6 +2,8 @@
 
 Курс валют запрашвиается с  "https://www.cbr-xml-daily.ru/daily_json.js"
 
+Узнать ваюты и их коды: {aplicationUrl}/valutes
+
 Пример запроса:
 * Адрес:  {aplicationUrl}/convert
 * Тело запроса:
